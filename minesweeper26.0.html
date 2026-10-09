@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>扫雷 · Minesweeper</title>
+<style>
+  /* =========================================================================
+     主题配色说明
+     -------------------------------------------------------------------------
+     整个页面的颜色都不写死，而是写成 CSS 变量（--名字），统一放在下面两块里：
+       · :root                     -> 浅色主题（默认）
+       · html[data-theme="dark"]   -> 深色主题（覆盖同名变量）
+     切换主题时，JavaScript 只要给 <html> 加上 data-theme="dark" 属性，
+     所有颜色就会立刻整体换掉——不用改任何一条具体样式。
+
+     ⚠️ 两套主题里定义的变量名必须完全一样，否则深色主题下会漏出浅色的颜色。
+     ========================================================================= */
+  :root {
+    color-scheme: light;              /* 让输入框、滚动条等系统控件也用浅色 */
+
+    /* —— 页面与卡片 —— */
+    --page-bg: linear-gradient(160deg, #eef3fa 0%, #dde6f2 100%);
+    --card-bg: #ffffff;
+    --card-shadow: 0 18px 40px rgba(30, 50, 80, 0.14), 0 2px 6px rgba(30, 50, 80, 0.08);
+
+    /* —— 文字 —— */
+    --text: #22303f;                  /* 正文 */
+    --text-strong: #2b3b4e;           /* 需要更重的文字 */
+    --text-muted: #7b8a9c;            /* 说明性小字 */
+    --text-soft: #66768a;             /* 操作提示区 */
+
+    /* —— 面板、边框、输入框 —— */
+    --surface: #f3f6fb;               /* 小统计块的底色 */
+    --surface-2: #f7f9fc;             /* 难度按钮 / 主题按钮的底色 */
+    --border: #dbe3ed;
+    --input-bg: #ffffff;
+    --focus-ring: rgba(61, 123, 253, 0.15);   /* 输入框聚焦时的光圈 */
+
+    /* —— 主色（重新开始按钮、选中的难度、聚焦边框） —— */
+    --primary: #3d7bfd;
+    --primary-hover: #2f6ae8;
+    --primary-shadow: 0 4px 10px rgba(61, 123, 253, 0.35);
+    --on-primary: #ffffff;
+
+    /* —— 彩色实心按钮上的文字（AI 按钮等） —— */
+    --on-accent: #ffffff;
+
+    /* —— 深色实心按钮（自定义开局） —— */
+    --solid-btn: #22303f;
+    --solid-btn-hover: #34465c;
+    --solid-btn-text: #ffffff;
+
+    /* —— AI 按钮 —— */
+    --ai: #10b981;
+    --ai-hover: #0ea472;
+    --ai-shadow: 0 4px 10px rgba(16, 185, 129, 0.32);
+    --ai-stop: #ef4444;
+    --ai-stop-hover: #dc2626;
+    --ai-stop-shadow: 0 4px 10px rgba(239, 68, 68, 0.32);
+
+    /* —— 棋盘与格子 —— */
+    --board-bg: #dbe3ed;              /* 棋盘底板（格子之间的缝隙颜色） */
+    --cell: #b9c7d9;                  /* 未翻开的格子 */
+    --cell-hover: #a8b9cf;
+    --cell-revealed: #eff3f8;         /* 已翻开的格子 */
+    --cell-text: #22303f;
+    --cell-flagged: #ffd766;          /* 插旗 */
+    --cell-mine: #ffd6d6;             /* 失败后显示的地雷 */
+    --cell-exploded: #ff4d4f;         /* 踩中的那颗雷 */
+    --cell-wrong: #ffe3e3;            /* 插错的旗 */
+
+    /* —— 数字 1-8 的传统配色 —— */
+    --n1: #1e6fd9;
+    --n2: #1e8e4a;
+    --n3: #d93636;
+    --n4: #7a3fd9;
+    --n5: #a8491b;
+    --n6: #0f9b9b;
+    --n7: #333333;
+    --n8: #6b7280;
+
+    /* —— 结果提示 —— */
+    --lose: #d93636;
+    --win: #1e8e4a;
+  }
+
+  /* ===================== 深色主题（覆盖上面同名变量即可） ===================== */
+  html[data-theme="dark"] {
+    color-scheme: dark;               /* 系统控件也跟着变深 */
+
+    --page-bg: linear-gradient(160deg, #101822 0%, #070b11 100%);
+    --card-bg: #161d27;
+    --card-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+    --text: #e6edf5;
+    --text-strong: #f2f6fb;
+    --text-muted: #8b9bb0;
+    --text-soft: #93a3b8;
+
+    --surface: #1e2733;
+    --surface-2: #1b232e;
+    --border: #2c3745;
+    --input-bg: #1b232e;
+    --focus-ring: rgba(91, 147, 255, 0.25);
+
+    --primary: #3f7dff;
+    --primary-hover: #5b93ff;
+    --primary-shadow: 0 4px 10px rgba(63, 125, 255, 0.35);
+    --on-primary: #ffffff;
+
+    --on-accent: #ffffff;
+
+    --solid-btn: #2c3745;
+    --solid-btn-hover: #3a4757;
+    --solid-btn-text: #ffffff;
+
+    --ai: #10b981;
+    --ai-hover: #16c78e;
+    --ai-shadow: 0 4px 10px rgba(16, 185, 129, 0.28);
+    --ai-stop: #ef4444;
+    --ai-stop-hover: #ff5c5c;
+    --ai-stop-shadow: 0 4px 10px rgba(239, 68, 68, 0.32);
+
+    --board-bg: #0e141c;
+    --cell: #39465a;
+    --cell-hover: #47576e;
+    --cell-revealed: #202a36;
+    --cell-text: #e6edf5;
+    --cell-flagged: #8a6a12;
+    --cell-mine: #582c33;
+    --cell-exploded: #e03b3f;
+    --cell-wrong: #4a2630;
+
+    /* 深色底上的数字要更亮才看得清 */
+    --n1: #6aa8ff;
+    --n2: #5dd39e;
+    --n3: #ff8080;
+    --n4: #c39bff;
+    --n5: #ffb066;
+    --n6: #4fd6d6;
+    --n7: #dbe4ef;
+    --n8: #9aa8b8;
+
+    --lose: #ff8080;
+    --win: #5dd39e;
+  }
+
+  /* ===================== 1. 页面整体样式 ===================== */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    /* 防止右键插旗、双击时选中页面上的文字 */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .game {
+    width: fit-content;      /* 卡片宽度跟着棋盘自动伸缩 */
+    min-width: 384px;
+    max-width: 100%;
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 22px 26px 18px;
+    box-shadow: var(--card-shadow);
+    transition: background .2s;
+  }
+
+  /* ===================== 2. 顶栏与主题切换按钮 ===================== */
+  .topbar {
+    position: relative;      /* 作为主题按钮的定位参照 */
+    text-align: center;
+  }
+  h1 { margin: 0; font-size: 26px; letter-spacing: 3px; }
+
+  .theme-btn {
+    position: absolute;      /* 绝对定位，标题才能保持居中 */
+    top: 0;
+    right: 0;
+    cursor: pointer;
+    padding: 6px 11px;
+    border: 1px solid var(--border);
+    border-radius: 999px;    /* 胶囊形状 */
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .theme-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+  .subtitle { margin: 6px 0 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+
+  /* ===================== 3. 难度选择 ===================== */
+  .levels { display: flex; gap: 8px; margin-bottom: 12px; }
+
+  .level-btn {
+    flex: 1;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text-strong);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .level-btn span { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+  .level-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .level-btn.active {
+    background: var(--primary); border-color: var(--primary); color: var(--on-primary);
+    box-shadow: var(--primary-shadow);
+  }
+  .level-btn.active span { color: var(--on-primary); opacity: .82; }
+
+  /* ===================== 4. 自定义棋盘 ===================== */
+  .custom { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+
+  .field {
+    flex: 1;
+    min-width: 64px;
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .field input {
+    margin-top: 3px;
+    width: 100%;
+    padding: 7px 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    text-align: center;
+  }
+  .field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+  .start-btn {
+    flex: 1.2;
+    min-width: 106px;
+    cursor: pointer;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--solid-btn);
+    color: var(--solid-btn-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background .15s;
+  }
+  .start-btn:hover { background: var(--solid-btn-hover); }
+
+  .hint { min-height: 18px; margin: 6px 0 2px; font-size: 12px; color: var(--lose); text-align: center; }
+
+  /* ===================== 5. 顶部信息面板 ===================== */
+  .panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 8px 0 12px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 78px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-radius: 10px;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); }
+  .stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-strong);
+    font-variant-numeric: tabular-nums; /* 数字等宽，计时时不会左右抖动 */
+  }
+
+  .restart {
+    flex: 1;
+    cursor: pointer;
+    border: none;
+    border-radius: 12px;
+    padding: 11px 10px;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: var(--primary-shadow);
+    transition: background .15s, transform .08s;
+  }
+  .restart:hover { background: var(--primary-hover); }
+  .restart:active { transform: translateY(1px); }
+
+  /* ===================== 6. AI 自动扫雷 ===================== */
+  .ai-btn {
+    width: 100%;
+    cursor: pointer;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 12px;
+    background: var(--ai);
+    color: var(--on-accent);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: var(--ai-shadow);
+    transition: background .15s, transform .08s;
+  }
+  .ai-btn:hover { background: var(--ai-hover); }
+  .ai-btn:active { transform: translateY(1px); }
+  /* AI 运行中：按钮变成红色的“停止” */
+  .ai-btn.running { background: var(--ai-stop); box-shadow: var(--ai-stop-shadow); }
+  .ai-btn.running:hover { background: var(--ai-stop-hover); }
+
+  .ai-status {
+    min-height: 18px;
+    margin: 6px 0 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===================== 7. 棋盘与格子 ===================== */
+  .board-wrap { max-width: 100%; overflow: auto; } /* 棋盘太宽时可以横向滚动 */
+
+  .board {
+    --cell: 34px;                                  /* 格子边长，由 JavaScript 按难度动态计算 */
+    display: grid;
+    grid-template-columns: repeat(9, var(--cell)); /* 列数由 JavaScript 重写 */
+    grid-auto-rows: var(--cell);                   /* 行高和列宽用同一个尺寸 */
+    /* 底板宽度紧贴内容：这样深灰色底板一定刚好包住所有格子和缝隙，
+       不会出现“棋盘比底板宽、边缘缝隙露出白色背景”的情况 */
+    width: max-content;
+    /* 比容器窄时居中；比容器宽时左右 auto 会退化成 0，自动靠左、可以横向滚动 */
+    margin: 0 auto;
+    gap: 3px;
+    padding: 8px;
+    background: var(--board-bg);
+    border-radius: 12px;
+  }
+
+  .cell {
+    /* 用 100% 填满自己的网格单元，而不是再写一次固定像素：
+       固定像素和轨道尺寸在缩放/小数像素下会各自取整，可能露出 1px 白缝 */
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: var(--cell);  /* 未翻开：颜色较深的“凸起”块 */
+    color: var(--cell-text);
+    font-family: inherit;
+    font-size: calc(var(--cell) * 0.54);
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .cell:hover:not(.revealed) { background: var(--cell-hover); }
+
+  /* 已翻开：颜色变浅、变平 */
+  .cell.revealed { background: var(--cell-revealed); cursor: default; }
+
+  /* 旗帜、地雷、爆炸、插错的旗 */
+  .cell.flagged  { background: var(--cell-flagged); }
+  .cell.mine     { background: var(--cell-mine); }
+  .cell.exploded { background: var(--cell-exploded); }
+  .cell.wrong    { background: var(--cell-wrong); }
+
+  /* 数字 1-8 的颜色（浅色/深色主题各有一套，写在最上面的变量里） */
+  .cell.n1 { color: var(--n1); }
+  .cell.n2 { color: var(--n2); }
+  .cell.n3 { color: var(--n3); }
+  .cell.n4 { color: var(--n4); }
+  .cell.n5 { color: var(--n5); }
+  .cell.n6 { color: var(--n6); }
+  .cell.n7 { color: var(--n7); }
+  .cell.n8 { color: var(--n8); }
+
+  /* ===================== 8. 结果提示与操作说明 ===================== */
+  .message {
+    min-height: 22px;   /* 固定高度，出现文字时页面不会跳动 */
+    margin: 14px 0 4px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .message.lose { color: var(--lose); }
+  .message.win  { color: var(--win); }
+
+  .tips {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    font-size: 12.5px;
+    line-height: 1.95;
+    color: var(--text-soft);
+  }
+  .tips p { margin: 0; }
+  .tips b { color: var(--text-strong); }
+</style>
+<script>
+  /* -------------------------------------------------------------------------
+     防止“闪一下浅色”：这段脚本放在 <head> 里，会在页面画出任何东西之前执行。
+     它先读一下上次保存的主题，是深色就立刻给 <html> 打上标记，
+     这样刷新页面时不会先显示一帧浅色再跳成深色。
+     用 try/catch 包住：个别浏览器在本地文件（file://）下会禁止 localStorage，
+     真读不到就算了，直接按默认的浅色显示。
+     注意：这里的键名 'minesweeper-theme' 必须和下面主脚本里的 THEME_KEY 一致。
+     ------------------------------------------------------------------------- */
+  try {
+    if (localStorage.getItem('minesweeper-theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  } catch (e) { /* 读不到就忽略，用默认浅色 */ }
+</script>
+</head>
+<body>
+
+  <div class="game">
+    <!-- 顶栏：标题居中，右上角是主题切换按钮 -->
+    <div class="topbar">
+      <h1>扫　雷</h1>
+      <button class="theme-btn" id="btn-theme" type="button" title="切换深色 / 浅色主题">🌙 深色</button>
+    </div>
+
+    <p class="subtitle" id="subtitle">初级 · 9 × 9 · 10 颗地雷</p>
+
+    <!-- 三个系统预设难度，按钮由 JavaScript 生成，避免两处配置不一致 -->
+    <div class="levels" id="levels"></div>
+
+    <!-- 自定义：宽（列数）、高（行数）、雷数 -->
+    <div class="custom">
+      <label class="field">宽（列）<input id="in-cols" type="number" min="5" max="40" value="9"></label>
+      <label class="field">高（行）<input id="in-rows" type="number" min="5" max="40" value="9"></label>
+      <label class="field">雷数<input id="in-mines" type="number" min="1" max="1000" value="10"></label>
+      <button class="start-btn" id="btn-custom" type="button">自定义开局</button>
+    </div>
+    <div class="hint" id="hint">&nbsp;</div>
+
+    <!-- 顶部面板：剩余雷数、重新开始、计时器 -->
+    <div class="panel">
+      <div class="stat">
+        <span class="stat-label">剩余雷数</span>
+        <span class="stat-value" id="mine-count">10</span>
+      </div>
+      <button class="restart" id="restart" type="button">🙂 重新开始</button>
+      <div class="stat">
+        <span class="stat-label">用时</span>
+        <span class="stat-value" id="timer">00:00</span>
+      </div>
+    </div>
+
+    <!-- AI 自动扫雷：按钮 + 当前思考状态 -->
+    <button class="ai-btn" id="btn-ai" type="button">🤖 AI 自动扫雷</button>
+    <div class="ai-status" id="ai-status">&nbsp;</div>
+
+    <!-- 棋盘：所有格子由 JavaScript 按当前难度动态生成 -->
+    <div class="board-wrap" id="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+
+    <!-- 游戏结果提示 -->
+    <div class="message" id="message">&nbsp;</div>
+
+    <!-- 操作提示 -->
+    <div class="tips">
+      <p>🖱️ <b>左键</b>：翻开格子 ｜ 🚩 <b>右键</b>：插旗 / 取消旗子</p>
+      <p>✌️ <b>左右键同时按（或双击已翻开的数字）</b>：若该数字周围插的旗数刚好等于它，
+         就自动翻开周围其余格子；如果旗插错了，会直接引爆地雷</p>
+      <p>🔢 数字表示它周围 8 格中的地雷数量；数字为 0 时会自动连锁展开</p>
+      <p>🤖 <b>AI 自动扫雷</b>：电脑每 0.3 秒走一步，先用确定的信息推理，
+         实在推不出来时才随机猜；AI 不会踩雷，翻开全部安全格后会自动停下</p>
+      <p>🌓 <b>右上角按钮</b>：一键切换深色 / 浅色主题，选择会被记住，刷新后依然生效</p>
+      <p>🏆 翻开全部安全格即获胜，踩到地雷则失败</p>
+    </div>
+  </div>
+
+<script>
+/* =========================================================================
+   扫雷游戏主逻辑
+   数据结构说明：
+   - 用一个一维数组 cells 保存全部格子，下标 index = 行 row * 列数 cols + 列 col
+   - 每个格子是一个对象：{ row, col, index, mine, revealed, flagged, count, el }
+       mine     : 是否是地雷
+       revealed : 是否已翻开
+       flagged  : 是否插了旗子
+       count    : 周围 8 格中的地雷数量（0-8）
+       el       : 对应的页面元素（button）
+   - 棋盘大小、雷数全部来自 config 对象，换难度时只改 config 再重开一局
+   ========================================================================= */
+
+/* ===================== 1. 难度配置与全局状态 ===================== */
+
+/* 三个系统预设难度：初级 / 中级 / 高级（高级 = 经典 30×16、99 雷） */
+const LEVELS = {
+  beginner:     { label: '初级', cols: 9,  rows: 9,  mines: 10 },
+  intermediate: { label: '中级', cols: 16, rows: 16, mines: 40 },
+  expert:       { label: '高级', cols: 30, rows: 16, mines: 99 }
+};
+
+const MIN_SIZE = 5;      // 自定义允许的最小宽/高
+const MAX_SIZE = 40;     // 自定义允许的最大宽/高
+const SAFE_ZONE = 9;     // 第一次点击时保护的 3×3 区域（9 格）
+const AI_SPEED = 300;    // AI 每走一步的间隔（毫秒），方便肉眼观察
+
+const THEME_KEY = 'minesweeper-theme';  // 主题存在 localStorage 里用的“键名”
+
+/* 当前使用的配置（默认初级） */
+let config = { key: 'beginner', label: '初级', cols: 9, rows: 9, mines: 10 };
+
+let cells = [];          // 所有格子对象
+let levelButtons = [];   // 预设难度按钮，用于高亮当前难度
+
+let minesPlaced = false; // 是否已经布雷（第一次点击后才布雷，保证第一下不会踩雷）
+let gameOver = false;    // 游戏是否已结束（踩雷或胜利）
+let flagCount = 0;       // 已经插了多少面旗
+let revealedCount = 0;   // 已经翻开了多少个格子
+
+let timerId = null;      // setInterval 的 id
+let seconds = 0;         // 已用秒数
+
+let aiRunning = false;   // AI 是否正在自动玩
+let aiTimerId = null;    // AI 的 setInterval id
+let aiSteps = 0;         // AI 已经走了多少步
+
+let chordGesture = false; // 本次鼠标手势是否“左右键同时按”（用来忽略随之而来的 click）
+
+let currentTheme = 'light'; // 当前主题：'light' 浅色 / 'dark' 深色
+
+/* 页面元素（脚本放在 body 末尾，此时元素都已存在，可以直接获取） */
+const boardEl     = document.getElementById('board');
+const boardWrapEl = document.getElementById('board-wrap');
+const mineCountEl = document.getElementById('mine-count');
+const timerEl     = document.getElementById('timer');
+const messageEl   = document.getElementById('message');
+const subtitleEl  = document.getElementById('subtitle');
+const levelsEl    = document.getElementById('levels');
+const hintEl      = document.getElementById('hint');
+const colsInput   = document.getElementById('in-cols');
+const rowsInput   = document.getElementById('in-rows');
+const minesInput  = document.getElementById('in-mines');
+const aiButtonEl  = document.getElementById('btn-ai');
+const aiStatusEl  = document.getElementById('ai-status');
+const themeButtonEl = document.getElementById('btn-theme');
+
+/* ===================== 2. 主题切换 ===================== */
+
+/* 读取上次保存的主题；没存过、或者浏览器禁止存储，就返回浅色 */
+function loadTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (e) {
+    return 'light';   // 个别浏览器在 file:// 下会禁止 localStorage，忽略即可
+  }
+}
+
+/* 把主题存进 localStorage，下次刷新还能记住 */
+function saveTheme(name) {
+  try {
+    localStorage.setItem(THEME_KEY, name);
+  } catch (e) {
+    /* 存不了也不影响本次使用，只是下次刷新记不住而已 */
+  }
+}
+
+/* 应用主题：给 <html> 设置 data-theme 属性，CSS 里的深色变量就会立刻生效 */
+function applyTheme(name) {
+  currentTheme = name;
+  document.documentElement.setAttribute('data-theme', name);
+
+  // 按钮上显示“点一下会变成什么”，而不是当前是什么
+  themeButtonEl.textContent = (name === 'dark') ? '☀️ 浅色' : '🌙 深色';
+  themeButtonEl.title = (name === 'dark') ? '当前是深色主题，点击切换到浅色' : '当前是浅色主题，点击切换到深色';
+}
+
+/* 切换主题并保存（供按钮调用） */
+function toggleTheme() {
+  const next = (currentTheme === 'dark') ? 'light' : 'dark';
+  applyTheme(next);
+  saveTheme(next);
+}
+
+/* ===================== 3. 难度切换 ===================== */
+
+/* 生成三个预设难度按钮（文字直接从 LEVELS 里读，改配置不用改 HTML） */
+function buildLevelButtons() {
+  levelButtons = [];
+  levelsEl.innerHTML = '';
+
+  Object.keys(LEVELS).forEach(function (key) {
+    const lv = LEVELS[key];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'level-btn';
+    btn.innerHTML = lv.label + '<span>' + lv.cols + '×' + lv.rows + ' · ' + lv.mines + '雷</span>';
+    btn.addEventListener('click', function () {
+      startGame({ key: key, label: lv.label, cols: lv.cols, rows: lv.rows, mines: lv.mines });
+    });
+    levelButtons.push({ key: key, el: btn });
+    levelsEl.appendChild(btn);
+  });
+}
+
+/* 高亮当前难度对应的按钮（自定义难度时三个按钮都不高亮） */
+function updateActiveLevel() {
+  levelButtons.forEach(function (item) {
+    if (item.key === config.key) item.el.classList.add('active');
+    else item.el.classList.remove('active');
+  });
+}
+
+/* 切换配置并开始新的一局 */
+function startGame(newConfig) {
+  config = newConfig;
+  updateActiveLevel();
+  newGame();
+}
+
+/* 读取自定义输入并校验，通过后开始游戏 */
+function startCustomGame() {
+  const cols  = parseInt(colsInput.value, 10);
+  const rows  = parseInt(rowsInput.value, 10);
+  const mines = parseInt(minesInput.value, 10);
+
+  if (!Number.isInteger(cols) || cols < MIN_SIZE || cols > MAX_SIZE) {
+    showHint('宽度（列数）请输入 ' + MIN_SIZE + ' ~ ' + MAX_SIZE + ' 之间的整数');
+    return;
+  }
+  if (!Number.isInteger(rows) || rows < MIN_SIZE || rows > MAX_SIZE) {
+    showHint('高度（行数）请输入 ' + MIN_SIZE + ' ~ ' + MAX_SIZE + ' 之间的整数');
+    return;
+  }
+  // 至少要给第一次点击的 3×3 安全区留出位置
+  const maxMines = cols * rows - SAFE_ZONE;
+  if (!Number.isInteger(mines) || mines < 1 || mines > maxMines) {
+    showHint('雷数请输入 1 ~ ' + maxMines + ' 之间的整数（' + cols + '×' + rows + ' 最多放 ' + maxMines + ' 颗）');
+    return;
+  }
+
+  showHint('');
+  startGame({ key: 'custom', label: '自定义', cols: cols, rows: rows, mines: mines });
+}
+
+/* 显示 / 清除自定义输入的校验提示 */
+function showHint(text) {
+  hintEl.textContent = text ? text : '\u00A0';
+}
+
+/* 顶部副标题显示当前难度规格 */
+function updateSubtitle() {
+  subtitleEl.textContent = config.label + ' · ' + config.cols + ' × ' + config.rows +
+                           ' · ' + config.mines + ' 颗地雷';
+}
+
+/* ===================== 4. 开始新的一局 ===================== */
+function newGame() {
+  // 4.1 重置所有状态变量（开局时顺便把 AI 停下来，避免 AI 在旧棋盘上乱动）
+  stopAI('');
+
+  cells = [];
+  minesPlaced = false;
+  gameOver = false;
+  flagCount = 0;
+  revealedCount = 0;
+  seconds = 0;
+
+  stopTimer();
+  timerEl.textContent = '00:00';
+  updateMineCount();
+  updateSubtitle();
+
+  messageEl.textContent = '\u00A0'; // 用不换行空格占位，保持高度
+  messageEl.className = 'message';
+
+  // 4.2 按当前配置重新生成棋盘
+  boardEl.innerHTML = '';
+  // 列数由配置决定；每列宽度由 CSS 变量 --cell 控制
+  boardEl.style.gridTemplateColumns = 'repeat(' + config.cols + ', var(--cell))';
+
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      const cell = {
+        row: r, col: c, index: r * config.cols + c,
+        mine: false, revealed: false, flagged: false,
+        count: 0, el: null
+      };
+
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'cell';
+
+      // 左键点击 -> 翻开格子（AI 运行时忽略玩家的操作，避免互相打架）
+      el.addEventListener('click', function () {
+        if (aiRunning) return;
+        // 浏览器在“左右键同时按”之后仍会补发一次 click，如果不管它，
+        // 按下左右键就会把没翻开的格子直接翻开（经典扫雷不会这样），所以要吃掉这一次
+        if (chordGesture) { chordGesture = false; return; }
+        handleLeftClick(cell);
+      });
+
+      // 右键 -> 插旗 / 取消旗子（必须先阻止浏览器默认的右键菜单）
+      el.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
+        if (aiRunning) return;
+        // buttons 是“当前还按着的键”：3 = 左右键同时按着，1 = 只按着左键。
+        // 后者出现在“按住左键的同时松开右键”的情况（部分系统上右键菜单是这时弹出的），
+        // 只要左键参与了这次手势，就当作“双击展开”，绝不能顺手插上一面旗。
+        if (event.buttons === 3 || event.buttons === 1) { chordCell(cell); return; }
+        handleRightClick(cell);
+      });
+
+      // 双击已翻开的数字格 -> 经典扫雷的“双击展开”（chord）
+      el.addEventListener('dblclick', function () {
+        if (aiRunning) return;
+        chordCell(cell);
+      });
+
+      // 左右键同时按下 -> 同样是“双击展开”
+      el.addEventListener('mousedown', function (event) {
+        // 每次按下鼠标都重新记录手势：这样 chordGesture 不会残留到下一次操作
+        chordGesture = (event.buttons === 3);
+        if (aiRunning) return;
+        if (chordGesture) chordCell(cell);
+      });
+
+      cell.el = el;
+      cells.push(cell);
+      boardEl.appendChild(el);
+    }
+  }
+
+  applyCellSize(); // 根据棋盘大小计算格子边长
+}
+
+/* 根据容器实际可用的宽度，算出合适的格子边长，写进 CSS 变量 --cell */
+function applyCellSize() {
+  const gap = 3;          // 与 CSS 中 .board 的 gap 保持一致
+  const padding = 16;     // 与 CSS 中 .board 的 padding 保持一致（左右各 8px）
+  // 列数越多，单个格子就越小
+  const maxCell = config.cols <= 9 ? 34 : (config.cols <= 16 ? 30 : 26);
+
+  // 先把格子临时设成最大尺寸，让卡片按“最宽的情况”重新布局。
+  // 这一步很关键：.board 的宽度是跟着格子尺寸走的，如果不先撑到最大，
+  // 量到的会是上一局的旧宽度（例如从 9×9 换到 40×40 时量到 346px）。
+  boardEl.style.setProperty('--cell', maxCell + 'px');
+
+  // 直接量外层容器真正的可用宽度。
+  // 以前是拿 window.innerWidth 估算的：它没算上滚动条、页面留白和浏览器缩放，
+  // 大棋盘时会宽出几个像素，棋盘就从灰色底板里溢出去，边缘缝隙变成白色。
+  let available = boardWrapEl.clientWidth; // 读取它会强制浏览器立刻完成布局
+
+  // 万一量不到（元素被隐藏、宽度为 0），再退回按窗口宽度估算并留出足够余量
+  if (!available) available = Math.min(window.innerWidth - 120, 1060);
+
+  let size = Math.floor((available - padding - gap * (config.cols - 1)) / config.cols);
+  size = Math.max(16, Math.min(maxCell, size)); // 限制在 16 ~ maxCell 像素之间
+
+  boardEl.style.setProperty('--cell', size + 'px');
+}
+
+/* ===================== 5. 工具函数 ===================== */
+
+/* 取出某个格子周围最多 8 个“存在的”邻居格子（自动处理边界） */
+function getNeighbors(cell) {
+  const result = [];
+  for (let dr = -1; dr <= 1; dr++) {      // 行的偏移：-1、0、1
+    for (let dc = -1; dc <= 1; dc++) {    // 列的偏移：-1、0、1
+      if (dr === 0 && dc === 0) continue; // 跳过自己
+      const r = cell.row + dr;
+      const c = cell.col + dc;
+      // 边界判断：越界的邻居直接忽略
+      if (r >= 0 && r < config.rows && c >= 0 && c < config.cols) {
+        result.push(cells[r * config.cols + c]);
+      }
+    }
+  }
+  return result;
+}
+
+/* 更新“剩余雷数”的显示 */
+function updateMineCount() {
+  // 用“总雷数 - 已插旗数”估算剩余雷数，插旗插多了会显示负数，属正常现象
+  mineCountEl.textContent = config.mines - flagCount;
+}
+
+/* 把秒数格式化成 00:00 的形式 */
+function formatTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function startTimer() {
+  stopTimer();
+  timerId = setInterval(function () {
+    seconds++;
+    timerEl.textContent = formatTime(seconds);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
+/* 是否已经把全部安全格都翻开了（用来判断“胜利”） */
+function isBoardCleared() {
+  return revealedCount === config.cols * config.rows - config.mines;
+}
+
+/* 把格子坐标变成“第 X 行第 Y 列”，方便在 AI 状态里显示（行列都从 1 开始数） */
+function posText(cell) {
+  return '第 ' + (cell.row + 1) + ' 行第 ' + (cell.col + 1) + ' 列';
+}
+
+/* ===================== 6. 布雷与计算数字 ===================== */
+/* 在玩家第一次点击之后才布雷：把点击的格子及其周围 8 格排除在雷区之外，
+   这样“第一下必踩雷”的情况永远不会发生，第一下一定会连锁展开一片区域。 */
+function placeMines(firstCell) {
+  const forbidden = new Set([firstCell]);
+  getNeighbors(firstCell).forEach(function (n) { forbidden.add(n); });
+
+  // 所有可以放雷的格子
+  const candidates = cells.filter(function (c) { return !forbidden.has(c); });
+
+  // Fisher-Yates 洗牌算法：把候选格子随机打乱
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = candidates[i];
+    candidates[i] = candidates[j];
+    candidates[j] = tmp;
+  }
+  // 取打乱后的前 mineCount 个放地雷
+  const total = Math.min(config.mines, candidates.length);
+  for (let i = 0; i < total; i++) {
+    candidates[i].mine = true;
+  }
+
+  // 计算每个非雷格周围 8 格里的地雷数量
+  cells.forEach(function (cell) {
+    if (cell.mine) return; // 地雷格不需要数字
+    cell.count = getNeighbors(cell).filter(function (n) { return n.mine; }).length;
+  });
+}
+
+/* ===================== 7. 鼠标交互 ===================== */
+
+/* 左键：翻开格子 */
+function handleLeftClick(cell) {
+  if (gameOver) return;      // 游戏已结束，不再响应
+  if (cell.revealed) return; // 已经翻开的格子
+  if (cell.flagged) return;  // 插了旗的格子不能翻开（防止误触）
+
+  // 第一次点击：布雷 + 开始计时
+  if (!minesPlaced) {
+    placeMines(cell);
+    minesPlaced = true;
+    startTimer();
+  }
+
+  if (cell.mine) {           // 踩到雷 -> 游戏失败
+    loseGame(cell);
+    return;
+  }
+
+  revealCell(cell);          // 安全格 -> 翻开
+  checkWin();                // 检查是否已经获胜
+}
+
+/* 右键：插旗 / 取消旗子 */
+function handleRightClick(cell) {
+  if (gameOver) return;
+  if (cell.revealed) return; // 已翻开的格子不需要插旗
+
+  if (cell.flagged) {
+    // 取消旗子
+    cell.flagged = false;
+    flagCount--;
+    cell.el.classList.remove('flagged');
+    cell.el.textContent = '';
+  } else {
+    // 插上旗子
+    cell.flagged = true;
+    flagCount++;
+    cell.el.classList.add('flagged');
+    cell.el.textContent = '🚩';
+  }
+
+  updateMineCount();
+}
+
+/* ===================== 8. 双击展开（经典扫雷的 chord 操作） ===================== */
+/* 规则：对一个已经翻开的数字格，如果它周围插旗的数量刚好等于这个数字，
+   就把周围其余“没插旗、没翻开”的格子全部翻开。
+   —— 旗子插对了：周围安全格一次展开；
+   —— 旗子插错了：那些没插旗的格子里就有真地雷，会被翻开 -> 直接爆炸失败。 */
+function chordCell(cell) {
+  if (gameOver) return;
+  if (!cell.revealed) return;    // 只能对已翻开的格子使用
+  if (cell.mine) return;         // 翻开的格子不可能是雷，这里只是保险
+  if (cell.count === 0) return;  // 空白格周围早就自动展开了，没有意义
+
+  const neighbors = getNeighbors(cell);
+  const flagNumber = neighbors.filter(function (n) { return n.flagged; }).length;
+
+  // 旗子数量必须正好等于数字，否则什么也不做（和经典扫雷一致）
+  if (flagNumber !== cell.count) return;
+
+  // 找出所有需要翻开的邻居：没插旗、也没翻开
+  const targets = neighbors.filter(function (n) { return !n.flagged && !n.revealed; });
+  if (targets.length === 0) return;
+
+  // 先翻开所有安全的邻居，同时记住有没有踩到雷
+  let boom = null;
+  targets.forEach(function (n) {
+    if (n.mine) {
+      if (!boom) boom = n;
+    } else {
+      revealCell(n);
+    }
+  });
+
+  // 旗子插错了 -> 引爆地雷，游戏结束
+  if (boom) {
+    loseGame(boom);
+    return;
+  }
+
+  checkWin(); // 也可能因为这次展开而通关
+}
+
+/* ===================== 9. 翻开格子（含连锁展开） ===================== */
+/* 这里用“栈 + 循环”代替递归，避免递归层数过深，逻辑也更直观：
+   把要翻开的格子压入栈中，每次取出一个翻开；
+   如果它是 0，就把周围还没翻开的格子也压入栈，如此循环直到栈清空。 */
+function revealCell(startCell) {
+  const stack = [startCell];
+
+  while (stack.length > 0) {
+    const cell = stack.pop();
+    if (cell.revealed) continue; // 已经翻开过
+    if (cell.flagged) continue;  // 插旗的格子受“保护”，不自动翻开
+
+    // 9.1 翻开这一格
+    cell.revealed = true;
+    revealedCount++;
+    cell.el.classList.add('revealed');
+
+    // 9.2 显示周围的地雷数
+    if (cell.count > 0) {
+      cell.el.textContent = cell.count;
+      cell.el.classList.add('n' + cell.count); // 用不同的颜色区分 1-8
+    } else {
+      // 9.3 数字为 0：说明周围 8 格都安全，把它们也加入待翻开列表（连锁展开）
+      getNeighbors(cell).forEach(function (n) {
+        if (!n.revealed && !n.flagged) stack.push(n);
+      });
+    }
+  }
+}
+
+/* ===================== 10. 胜负判定 ===================== */
+
+/* 胜利条件：所有非雷格都被翻开 */
+function checkWin() {
+  if (isBoardCleared()) {
+    winGame();
+  }
+}
+
+/* 失败：踩到地雷 */
+function loseGame(explodedCell) {
+  gameOver = true;
+  stopTimer();
+
+  // 把所有地雷展示出来：没插旗的直接显示 💣，插错旗的标成 ❌
+  cells.forEach(function (c) {
+    if (c.mine && !c.flagged) {
+      c.el.textContent = '💣';
+      c.el.classList.add('mine');
+    }
+    if (!c.mine && c.flagged) {
+      c.el.textContent = '❌';
+      c.el.classList.add('wrong');
+    }
+  });
+
+  // 被踩中的那颗雷单独高亮
+  explodedCell.el.textContent = '💥';
+  explodedCell.el.classList.add('exploded');
+
+  messageEl.textContent = '💥 踩到地雷了！点「重新开始」再来一局';
+  messageEl.className = 'message lose';
+}
+
+/* 胜利：翻开全部安全格 */
+function winGame() {
+  gameOver = true;
+  stopTimer();
+
+  // 胜利后自动帮玩家把剩下的地雷都插上旗子，看起来更完整
+  cells.forEach(function (c) {
+    if (c.mine && !c.flagged) {
+      c.flagged = true;
+      c.el.classList.add('flagged');
+      c.el.textContent = '🚩';
+    }
+  });
+  flagCount = config.mines;
+  updateMineCount();
+
+  messageEl.textContent = '🏆 恭喜通关（' + config.label + ' ' + config.cols + '×' + config.rows +
+                          ' · ' + config.mines + ' 雷）！用时 ' + formatTime(seconds);
+  messageEl.className = 'message win';
+}
+
+/* ===================== 11. AI 自动扫雷 ===================== */
+/*
+   AI 每一步只做一个动作，规则和真人高手的思路完全一样：
+
+   ① 扫一遍所有「已翻开的数字格」，用两条铁律做确定推理：
+      设 数字格 周围：h = 未翻开且未插旗的格子数，f = 已插旗的格子数，n = 该数字
+      · 若 h === n - f  ->  这 h 个格子必定全是雷      -> 全部插旗
+      · 若 f === n      ->  这 h 个格子必定全是安全的  -> 全部翻开
+   ② 如果两条铁律都推不出任何格子，就只能随机猜一个（后备策略）。
+      为了让「AI 绝不踩雷」，随机时只从真正的安全格里挑（相当于开了上帝视角）。
+
+   两条铁律之所以可靠，前提是「AI 插的旗一定是对的」：
+   AI 只在 h === n - f 时才插旗，此时这些格子必然是雷；而且 AI 开始前会先把
+   玩家留下的旗子全部清掉，避免依据错误的旗子推理。
+*/
+function aiFindMoves() {
+  const flags = [];              // 可以 100% 确定是雷的格子
+  const safes = [];              // 可以 100% 确定安全的格子
+  const flagSet = new Set();     // 用于去重：同一个格子可能被多个数字格推导出来
+  const safeSet = new Set();
+
+  cells.forEach(function (cell) {
+    // 只看「已经翻开的数字格」；空白格（0）旁边早就自动展开了，不用管
+    if (!cell.revealed || cell.count === 0) return;
+
+    const neighbors = getNeighbors(cell);
+    const hidden = neighbors.filter(function (n) { return !n.revealed && !n.flagged; });
+    const flagNumber = neighbors.filter(function (n) { return n.flagged; }).length;
+
+    if (hidden.length === 0) return; // 周围已经处理干净，无事可做
+
+    // 铁律一：未翻开格数 == 数字 - 已插旗数  ==>  这些未翻开格全是雷
+    if (hidden.length === cell.count - flagNumber) {
+      hidden.forEach(function (n) {
+        if (!flagSet.has(n)) {
+          flagSet.add(n);
+          flags.push({ cell: n, from: cell });
+        }
+      });
+    }
+
+    // 铁律二：已插旗数 == 数字  ==>  其余未翻开格全是安全的
+    if (flagNumber === cell.count) {
+      hidden.forEach(function (n) {
+        if (!safeSet.has(n)) {
+          safeSet.add(n);
+          safes.push({ cell: n, from: cell });
+        }
+      });
+    }
+  });
+
+  return { flags: flags, safes: safes };
+}
+
+/* 开局前把棋盘上已有的旗子全部撤掉（玩家手动插的旗可能是错的，
+   留着会让 AI 依据错误信息推理，甚至把雷当成安全格翻开） */
+function aiClearFlags() {
+  cells.forEach(function (c) {
+    if (c.flagged) handleRightClick(c); // 复用右键逻辑，保证旗子计数同步
+  });
+}
+
+/* 更新 AI 的状态提示文字 */
+function setAIStatus(text) {
+  aiStatusEl.textContent = text ? text : '\u00A0';
+}
+
+/* 开始自动扫雷 */
+function startAI() {
+  if (aiRunning) return;
+
+  // 游戏已经结束的话，先提示玩家重新开始
+  if (gameOver) {
+    setAIStatus('本局已经结束，请先点「重新开始」再来一局');
+    return;
+  }
+
+  aiClearFlags(); // 先清掉玩家留下的旗子（见 aiClearFlags 的说明）
+
+  aiRunning = true;
+  aiSteps = 0;
+  aiButtonEl.textContent = '⏸ 停止 AI';
+  aiButtonEl.classList.add('running');
+
+  aiTick();                                        // 立刻走第一步，不用等 300ms
+  aiTimerId = setInterval(aiTick, AI_SPEED);       // 之后每 300ms 走一步
+}
+
+/* 停止自动扫雷（reason 会显示在状态栏里，传空字符串表示清空状态） */
+function stopAI(reason) {
+  if (aiTimerId !== null) {
+    clearInterval(aiTimerId);
+    aiTimerId = null;
+  }
+  aiRunning = false;
+  aiButtonEl.textContent = '🤖 AI 自动扫雷';
+  aiButtonEl.classList.remove('running');
+  setAIStatus(reason ? reason : '');
+}
+
+/* 点击按钮：没在跑就开始，正在跑就停止 */
+function toggleAI() {
+  if (aiRunning) {
+    stopAI('⏹ 已手动停止（共走了 ' + aiSteps + ' 步）');
+    return;
+  }
+  startAI();
+}
+
+/* 没有任何确定信息时的后备策略：随机翻开一个格子 */
+function aiRandomGuess() {
+  // 只从「真正的安全格」里随机挑：这是需求要求的“AI 不踩雷”，
+  // 相当于给 AI 开了上帝视角，所以 AI 永远不会输。
+  const unrevealedSafe = cells.filter(function (c) { return !c.revealed && !c.mine; });
+
+  if (unrevealedSafe.length === 0) {
+    // 理论上走不到这里：安全格全翻开时游戏早就判胜了
+    stopAI('🤖 已经没有可以翻开的格子了');
+    return;
+  }
+
+  // 优先挑没插旗的安全格
+  const candidates = unrevealedSafe.filter(function (c) { return !c.flagged; });
+
+  if (candidates.length === 0) {
+    // 剩下的安全格全被旗子占着（例如玩家之前插错的旗），先撤掉一面旗
+    const random = unrevealedSafe[Math.floor(Math.random() * unrevealedSafe.length)];
+    handleRightClick(random);
+    aiSteps++;
+    setAIStatus('第 ' + aiSteps + ' 步 · 🚩 撤掉一面挡住路的旗子');
+    return;
+  }
+
+  const guess = candidates[Math.floor(Math.random() * candidates.length)];
+  handleLeftClick(guess);
+  aiSteps++;
+  setAIStatus('第 ' + aiSteps + ' 步 · 🎲 没有确定的信息，随机翻开一格');
+}
+
+/* AI 走一步（每 300ms 被定时器调用一次；每步只做一个动作，方便观察） */
+function aiTick() {
+  if (!aiRunning) return;
+
+  // 每步开始前先看看游戏是不是已经结束了
+  if (gameOver) {
+    stopAI(isBoardCleared() ? '🎉 AI 已翻开全部安全格，自动停止' : '💥 游戏结束');
+    return;
+  }
+
+  const moves = aiFindMoves(); // 本步所有 100% 确定的走法
+
+  if (moves.flags.length > 0) {
+    // 优先级 1：能确定是雷 -> 插旗
+    const move = moves.flags[0];
+    handleRightClick(move.cell);
+    aiSteps++;
+    setAIStatus('第 ' + aiSteps + ' 步 · 🚩 插旗（由 ' + posText(move.from) + ' 的数字推出）');
+  } else if (moves.safes.length > 0) {
+    // 优先级 2：能确定安全 -> 翻开
+    const move = moves.safes[0];
+    handleLeftClick(move.cell);
+    aiSteps++;
+    setAIStatus('第 ' + aiSteps + ' 步 · 🖱️ 翻开安全格（由 ' + posText(move.from) + ' 的数字推出）');
+  } else {
+    // 优先级 3：推不出来了 -> 随机猜一个
+    aiRandomGuess();
+  }
+
+  // 走完这一步后再检查一次：可能刚好翻开了最后一个安全格
+  if (gameOver) {
+    stopAI(isBoardCleared() ? '🎉 AI 已翻开全部安全格，自动停止（共 ' + aiSteps + ' 步）'
+                            : '💥 游戏结束');
+  }
+}
+
+/* ===================== 12. 启动游戏 ===================== */
+applyTheme(loadTheme());   // 先按上次记住的主题把页面画出来（不写回存储）
+
+buildLevelButtons();   // 生成三个预设难度按钮
+updateActiveLevel();   // 高亮默认难度
+
+document.getElementById('restart').addEventListener('click', newGame); // 用当前难度重开
+document.getElementById('btn-custom').addEventListener('click', startCustomGame);
+aiButtonEl.addEventListener('click', toggleAI);                        // AI 开关
+themeButtonEl.addEventListener('click', toggleTheme);                  // 主题开关
+
+// 在自定义输入框里按回车 = 点“自定义开局”
+[colsInput, rowsInput, minesInput].forEach(function (input) {
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') startCustomGame();
+  });
+});
+
+// 窗口大小变化时重新计算格子尺寸，保证棋盘不会超出屏幕
+window.addEventListener('resize', applyCellSize);
+
+newGame(); // 页面一打开就先开一局（默认初级）
+</script>
+</body>
+</html>
