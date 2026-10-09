@@ -85,3 +85,31 @@
 | fc 处幅值 | -3.01 dB | -3.01 dB | ≈0% |
 | fc 处相位 | -45° | -45° | ≈0% |
 波形图：<img width="1485" height="1186" alt="rc_lowpass_bode" src="https://github.com/user-attachments/assets/d0224490-afe4-4ec6-897b-5ccc9eeafe69" />
+### 电路②：戴维南定理验证
+
+**电路图：**（上传 circuit2_thevenin.jpg 后插入）
+
+**理论计算：**
+- V1 = 10V, R1 = 1kΩ, R2 = 2kΩ
+- Vth = 10 × R2/(R1+R2) = 6.667 V
+- Rth = R1 ∥ R2 = 666.7 Ω
+- 当 RL = Rth 时，VL = Vth/2 = 3.333 V
+
+**仿真结果：**
+- 开路电压 Vth = 6.667 V
+- 等效电阻 Rth = 666.7 Ω
+- 不同负载下的电压：
+  - RL = 1kΩ → VL = 4.000 V
+  - RL = 2kΩ → VL = 5.000 V
+  - RL = 5kΩ → VL = 5.882 V
+  - RL = 10kΩ → VL = 6.250 V
+
+**对比表：**
+
+| 参数 | 理论值 | 仿真值 | 误差 |
+| :--- | :--- | :--- | :--- |
+| 开路电压 Vth | 6.667 V | 6.667 V | ≈0% |
+| 等效电阻 Rth | 666.7 Ω | 666.7 Ω | ≈0% |
+| RL=Rth 时 VL | 3.333 V | 3.333 V | ≈0% |
+
+**波形图：**（上传 thevenin_load_voltage.png 后插入）
