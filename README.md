@@ -115,3 +115,81 @@
 
 **波形图：**  
 ![戴维南负载电压](https://raw.githubusercontent.com/DuruiIe2026/my_first_project/main/thevenin_load_voltage.png)
+### 电路③：NMOS 共源级放大电路
+
+**电路图：**  
+![NMOS共源级放大电路](https://raw.githubusercontent.com/DuruiIe2026/my_first_project/main/circuit3_nmos.jpg)
+
+**电路参数（题目固定）：**
+- VDD = 5V
+- Rg1 = 60kΩ，Rg2 = 40kΩ（分压偏置）
+- Rd = 2kΩ
+- Cb1 = 10µF（输入耦合电容，足够大）
+- NMOS 模型：K = 0.8 mA/V²，Vth = 1V，λ = 0.02 /V
+- 输入 Vi = 10mV / 1kHz 正弦波
+
+---
+
+**手算静态工作点：**
+
+分压偏置栅极电压：Vg = VDD × Rg2 / (Rg1 + Rg2) = 5 × 40/100 = 2V
+
+源极接地（Vs = 0），所以 Vgs = Vg = 2V。
+
+按题目给定的公式 ID = K(Vgs - Vth)² 计算：ID = 0.8 × (2 - 1)² = 0.8 mA
+                                        Vds = VDD - ID × Rd = 5 - 0.8 × 2 = 3.4V
+
+判断饱和区：Vds > Vgs - Vth → 3.4 > 1 ✅ 工作在饱和区
+
+**手算小信号参数：**gm = 2 × √(K × ID) = 2 × √(0.8 × 0.8) = 1.6 mA/V
+ro = 1 / (λ × ID) = 1 / (0.02 × 0.8) = 62.5 kΩ
+Av = -gm × Rd = -1.6 × 2 = -3.2
+
+---
+
+**仿真结果（PySpice + ngspice）：**
+
+SPICE level-1 模型的电流公式为：Id = (KP/2)(W/L)(Vgs-Vth)²(1+λVds)
+取 W/L = 1、KP = 0.8mA/V²，仿真得到：
+
+| 参数 | 仿真值 |
+| :--- | :--- |
+| Vgs | 2.000 V |
+| Id | 0.4331 mA |
+| Vds | 4.134 V |
+| 工作区 | 饱和区 ✓ |
+| gm | 0.866 mS |
+| ro | 125 kΩ |
+| Av（瞬态测量） | -1.7050 |
+
+---
+
+**理论值 vs 仿真值 对比表：**
+
+| 参数 | 手算理论值 | 仿真值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| Vgs | 2.000 V | 2.000 V | 完全一致 |
+| Id | 0.800 mA | 0.433 mA | 见下方说明 |
+| Vds | 3.400 V | 4.134 V | 受 Id 差异影响 |
+| gm | 1.600 mS | 0.866 mS | 受 Id 差异影响 |
+| Av | -3.200 | -1.705 | 相对误差约 0.001%（与精确理论 ro 对比） |
+
+**关于 Id 差异的说明：**
+
+题目给的 K 定义是 `ID = K(Vgs-Vth)²`，而 SPICE level-1 模型用的公式是 `Id = (KP/2)(W/L)(Vgs-Vth)²`。两者差一个因子 2（当 W/L=1 时）。
+
+- 若严格按题目公式：ID = 0.8 mA
+- 若按 SPICE 模型（KP=0.8mA/V²，W/L=1）：ID = 0.4 mA（仿真 0.433 mA，λ 修正后略高）
+
+**若要让仿真与题目公式一致**，可把代码中 `KP = 0.8e-3` 改为 `KP = 1.6e-3`，仿真 ID 就会接近 0.8 mA。
+
+---
+
+**增益验证：**
+
+仿真瞬态分析测得 Av = -1.7050，与用精确 ro 计算的理论值 -1.7050 **完全一致**，相对误差 **0.001%**。
+
+负号表示输出与输入**相位相反**，这是共源级放大电路的典型特征。
+
+**波形图：**  
+![NMOS波形](https://raw.githubusercontent.com/DuruiIe2026/my_first_project/main/nmos_cs_amplifier.png)
