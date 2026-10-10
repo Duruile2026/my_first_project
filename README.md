@@ -87,7 +87,8 @@
 波形图：<img width="1485" height="1186" alt="rc_lowpass_bode" src="https://github.com/user-attachments/assets/d0224490-afe4-4ec6-897b-5ccc9eeafe69" />
 ### 电路②：戴维南定理验证
 
-**电路图：**（上传 circuit2_thevenin.jpg 后插入）
+**电路图：** <img width="3628" height="2364" alt="circuit2_thevenin jpg" src="https://github.com/user-attachments/assets/c3f718da-83ab-4465-9385-82ebcade80b4" />
+
 
 **理论计算：**
 - V1 = 10V, R1 = 1kΩ, R2 = 2kΩ
@@ -112,4 +113,4 @@
 | 等效电阻 Rth | 666.7 Ω | 666.7 Ω | ≈0% |
 | RL=Rth 时 VL | 3.333 V | 3.333 V | ≈0% |
 
-**波形图：**（上传 thevenin_load_voltage.png 后插入）
+**波形图：**
